@@ -3,7 +3,12 @@ import joblib
 import numpy as np
 
 from modules.feature_extraction import extract_features
-from modules.config import MODEL_PATH, ENCODER_PATH, SCALER_PATH
+from modules.config import (
+    MODEL_PATH,
+    ENCODER_PATH,
+    SCALER_PATH,
+    FEATURE_INDEX_PATH
+)
 
 st.set_page_config(
     page_title="Duck–Goose Audio Classification",
@@ -15,9 +20,10 @@ def load_artifacts():
     model = joblib.load(MODEL_PATH)
     encoder = joblib.load(ENCODER_PATH)
     scaler = joblib.load(SCALER_PATH)
-    return model, encoder, scaler
+    selected_idx = np.load(FEATURE_INDEX_PATH)
+    return model, encoder, scaler, selected_idx
 
-model, encoder, scaler = load_artifacts()
+model, encoder, scaler, selected_idx = load_artifacts()
 
 st.title("🦆🪿 Duck–Goose Audio Classification")
 
@@ -26,29 +32,24 @@ uploaded_file = st.file_uploader(
     type=["wav"]
 )
 
-if uploaded_file is not None:
+if uploaded_file:
     try:
-        # Extract MFCC (13)
+        # 1️⃣ Extract 16 features
         features = extract_features(uploaded_file)
 
-        # Safety check
-        if features.shape[0] != model.n_features_in_:
-            st.error(
-                f"❌ Jumlah fitur tidak sesuai. "
-                f"Model butuh {model.n_features_in_}, "
-                f"input punya {features.shape[0]}"
-            )
-        else:
-            # Scale
-            features_scaled = scaler.transform(
-                features.reshape(1, -1)
-            )
+        # 2️⃣ Scale 16 features
+        features_scaled = scaler.transform(
+            features.reshape(1, -1)
+        )
 
-            # Predict
-            prediction = model.predict(features_scaled)
-            label = encoder.inverse_transform(prediction)
+        # 3️⃣ Select 13 features (SAMA DENGAN TRAINING)
+        features_selected = features_scaled[:, selected_idx]
 
-            st.success(f"✅ Hasil Prediksi: **{label[0]}**")
+        # 4️⃣ Predict
+        prediction = model.predict(features_selected)
+        label = encoder.inverse_transform(prediction)
+
+        st.success(f"✅ Hasil Prediksi: **{label[0]}**")
 
     except Exception as e:
         st.error("Terjadi kesalahan saat memproses audio.")
