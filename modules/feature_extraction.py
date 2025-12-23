@@ -1,22 +1,32 @@
 import librosa
 import numpy as np
-from .config import SAMPLE_RATE, N_MFCC
+import io
 
-def extract_features(file):
-    y, sr = librosa.load(file, sr=SAMPLE_RATE)
+def extract_features(uploaded_file):
+    """
+    Extract 13 MFCC features (mean over time)
+    Must match training configuration
+    """
 
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=N_MFCC)
-    mfcc_mean = mfcc.mean(axis=1)
+    # Streamlit uploader → bytes → buffer
+    audio_bytes = uploaded_file.read()
+    audio_buffer = io.BytesIO(audio_bytes)
 
-    zcr = librosa.feature.zero_crossing_rate(y).mean()
-    rms = librosa.feature.rms(y=y).mean()
-    centroid = librosa.feature.spectral_centroid(y=y, sr=sr).mean()
+    # Load audio
+    signal, sr = librosa.load(
+        audio_buffer,
+        sr=44100,
+        mono=True
+    )
 
-    features = np.hstack([
-        mfcc_mean,
-        zcr,
-        rms,
-        centroid
-    ])
+    # Extract MFCC (13)
+    mfcc = librosa.feature.mfcc(
+        y=signal,
+        sr=sr,
+        n_mfcc=13
+    )
 
-    return features
+    # Temporal aggregation (mean)
+    mfcc_mean = np.mean(mfcc, axis=1)
+
+    return mfcc_mean  # shape: (13,)
